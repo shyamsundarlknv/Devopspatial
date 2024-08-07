@@ -1,0 +1,174 @@
+# install awscli
+apt install awscli
+
+# install unzip
+sudo apt install unzip -y
+
+# Enter your AWS Access Key ID, Secret Access Key, default region, and output format.
+aws configure
+
+
+# Then install packer plugin to create a image:
+
+packer plugins install github.com/hashicorp/amazon
+
+
+# Search for Ubuntu AMIs:
+
+aws ec2 describe-images --owners 099720109477 --filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*" --query "Images[*].[ImageId,Name]" --output text
+
+
+You will get a list of AMI IDs with their names. Choose the latest one from the list.
+
+------------------------------------------------------------------------------------------------
+# Download packer:
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+sudo apt update && sudo apt install packer
+
+packer version
+
+----------------------------------------------------------------------
+# Create a Packer Template for AMI
+
+mkdir packer-config
+cd packer-config
+
+# Create a Packer Template File (packer-template.json):
+
+nano packer-template.json
+
+--------------------------------------------------------------------------------------------------
+then, upload this:
+
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "us-west-2",
+      "instance_type": "t2.micro",
+      "source_ami": "ami-0abcd1234efgh5678",
+      "ssh_username": "ubuntu",
+      "ami_name": "custom-ami-with-software-{{timestamp}}"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "sudo apt-get update",
+        "sudo apt-get install -y software-properties-common",
+        "sudo add-apt-repository ppa:openjdk-r/ppa",
+        "sudo apt-get update",
+        "sudo apt-get install -y openjdk-17-jdk python3 git ansible"
+      ]
+    }
+  ]
+}
+
+------------------------------------------------------------------------------------------------------
+# Build the AMI with Packer
+
+packer build packer-template.json
+-------------------------------------------
+
+
+# Tofu Configuration:
+# Create a Tofu Configuration Directory and File
+
+mkdir tofu-config
+cd tofu-config
+nano main.tf
+
+# Update main.tf
+provider "aws" {
+  region = "ap-south-1"
+}
+
+# Define the security group
+resource "aws_security_group" "opentofu_sg" {
+  name = "opentofu"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 2181
+    to_port     = 2181
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Define the EC2 instance
+resource "aws_instance" "opentofu_instance" {
+  ami           = "ami-0abcdef1234567890"  # Replace with your new AMI ID
+  instance_type = "t2.micro"
+  security_groups = [aws_security_group.opentofu_sg.name]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update -y
+              apt-get install -y git ansible
+              ansible-pull -U https://git.devopscentrum.com/devopspatial/ansible-playbooks.git -C main prod/kafka/install.yaml
+              EOF
+
+  tags = {
+    Name = "opentofu"
+  }
+}
+-------------------------------------------------------------------------------
+# Initialize and Apply Tofu Configuration:
+
+tofu init
+tofu plan
+tofu apply
+
+----------------------
+
+
+# Once connected to the EC2 instance, run the following commands to verify the installation of each software:
+
+     # Verify Java Installation:
+        java -version
+
+     # Verify Python Installation:
+        python3 --version
+
+     # Verify Git Installation:
+        git --version
+
+     # Verify Ansible Installation:
+       ansible --version
+
+Summary of Steps:
+# Install AWS CLI and configure it.
+# Install Packer and the Amazon plugin.
+# Create a Packer template to build an AMI with the required software.
+# Build the AMI using Packer.
+# Create and update the Tofu configuration to use the newly created AMI.
+# Initialize and apply the Tofu configuration to launch an EC2 instance that automatically sets up Kafka using Ansible.
+
+
+# By following these steps, you can ensure that all the required software has been installed correctly on the custom AMI created with Packer. 
+# If any of the installations are missing or incorrect, you can troubleshoot the Packer build process and adjust the packer-template.json accordingly.

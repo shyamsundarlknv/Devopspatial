@@ -1,0 +1,118 @@
+######################################################################################################
+
+---
+- name: Install Kafka
+  hosts: localhost
+  become: yes
+  tasks:
+
+name: This is a descriptive name for the playbook.
+hosts: Specifies the target hosts for this playbook. localhost means it will run on the local machine where Ansible is executed.
+become: Allows the playbook to run tasks with elevated privileges (using sudo).
+#######################################################################################################
+
+Tasks:
+1. Update apt Repository Cache
+----------------------------------------------------------
+
+    - name: Update apt repository cache
+      apt:
+        update_cache: yes
+-----------------------------------------------------------
+
+name: Descriptive name for the task.
+apt: Ansible module for managing packages on Debian-based systems.
+update_cache: Ensures the package index cache is updated before installing packages.
+
+##########################################################################################################
+
+2.Install Necessary Dependencies
+
+---------------------------------------------------------------------------
+    - name: Install necessary dependencies
+      apt:
+        name:
+          - zookeeperd
+          - wget
+        state: present
+------------------------------------------------------------------
+name: Descriptive name for the task.
+apt: Installs the specified packages.
+name: Lists the packages to install: zookeeperd (Zookeeper daemon) and wget (a tool for downloading files).
+state: present ensures the packages are installed.
+
+###################################################################################################################
+
+3. Download Kafka
+-----------------------------------------------------------------------------------------------------------------------
+    - name: Download Kafka
+      shell: |
+        wget https://downloads.apache.org/kafka/3.8.0/kafka_2.12-3.8.0.tgz
+        tar -xvzf kafka_2.12-3.8.0.tgz
+        mv kafka_2.12-3.8.0 /usr/local/kafka
+      args:
+        chdir: /tmp
+-----------------------------------------------------------------------------------------------------------------------
+name: Descriptive name for the task.
+shell: Executes shell commands.
+wget downloads the Kafka tarball.
+tar extracts the tarball.
+mv moves the extracted Kafka directory to /usr/local/kafka.
+args: chdir: /tmp sets the working directory for the shell commands.
+
+#######################################################################################################################
+
+4. Create Kafka Service   
+----------------------------------------------------------------------------------------------------------------------
+    - name: Create Kafka service
+      copy:
+        dest: /etc/systemd/system/kafka.service
+        content: |
+          [Unit]
+          Description=Apache Kafka Server
+          Documentation=http://kafka.apache.org/documentation.html
+          Requires=zookeeper.service
+          After=zookeeper.service
+
+          [Service]
+          User=root
+          Group=root
+          ExecStart=/usr/local/kafka/bin/kafka-server-start.sh /usr/local/kafka/config/server.properties
+          ExecStop=/usr/local/kafka/bin/kafka-server-stop.sh
+
+          [Install]
+          WantedBy=multi-user.target
+----------------------------------------------------------------------------------------------------------
+name: Descriptive name for the task.
+copy: Copies files to the remote system.
+dest: Destination file path for the service definition.
+content: Defines the content of the Kafka service file:
+[Unit] Describes the service and its dependencies (e.g., zookeeper.service must be running before Kafka).
+[Service] Specifies how the Kafka service should start and stop:
+ExecStart: Command to start Kafka.
+ExecStop: Command to stop Kafka.
+[Install] Defines the installation targets for the service (multi-user.target is a common target for services).
+
+#########################################################################################################################
+
+
+5. Enable and Start Kafka Service
+-------------------------------------------------------------------------------------------------------------------------
+
+    - name: Enable and start Kafka service
+      systemd:
+        name: kafka
+        enabled: yes
+        state: started
+--------------------------------------------------------------------------------------------------------------------------
+name: Descriptive name for the task.
+systemd: Manages systemd services.
+name: Specifies the service name (kafka).
+enabled: Ensures the service is enabled to start on boot.
+state: started ensures the service is running.
+
+##############################################################################################################################
+
+Summary:
+This playbook automates the installation and configuration of Kafka on a machine, including setting up necessary dependencies, downloading Kafka, configuring it as a systemd service, and ensuring the service is running and enabled.
+
