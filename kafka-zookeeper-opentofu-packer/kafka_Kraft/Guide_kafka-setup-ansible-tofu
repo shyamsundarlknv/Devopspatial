@@ -1,0 +1,200 @@
+# Kafka Setup on EC2 Instance
+
+## Launch an EC2 Instance
+**Security Group:** Open ports 22 (SSH), 9092 (Kafka), and 2181 (Zookeeper)
+
+## Step 1: Install Java
+Kafka requires Java to run. 
+Install Java with the following commands:
+
+sudo apt update
+sudo apt install openjdk-11-jdk -y
+java -version
+
+
+## install ansible
+sudo apt update
+sudo apt install ansible -y
+ansible --version
+
+
+## Install openTofu
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+sudo apt-get update && sudo apt-get install tofu -y
+
+(Or)
+
+# Download the installer script:
+curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+# Alternatively: wget --secure-protocol=TLSv1_2 --https-only https://get.opentofu.org/install-opentofu.sh -O install-opentofu.sh
+
+# Give it execution permissions:
+chmod +x install-opentofu.sh
+
+# Please inspect the downloaded script
+
+# Run the installer:
+./install-opentofu.sh --install-method deb
+
+# Remove the installer:
+rm -f install-opentofu.sh
+
+
+-------------------------------------------------
+
+## Set Up Kafka Using Ansible
+..Create an Ansible Playbook Directory
+mkdir kafka-setup
+cd kafka-setup
+
+## Create a Playbook File
+nano kafka-setup.yml
+
+## Add the Following Content to kafka-setup.yml
+
+---
+- name: Install and Configure Kafka in KRaft Mode
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Update apt repository cache
+      apt:
+        update_cache: yes
+
+    - name: Install necessary dependencies
+      apt:
+        name:
+          - wget
+          - tar
+        state: present
+
+    - name: Download Kafka
+      shell: |
+        wget https://downloads.apache.org/kafka/3.8.0/kafka_2.12-3.8.0.tgz
+        tar -xvzf kafka_2.12-3.8.0.tgz
+        mv kafka_2.12-3.8.0 /usr/local/kafka
+      args:
+        chdir: /tmp
+
+    - name: Create Kafka configuration for KRaft mode
+      copy:
+        dest: /usr/local/kafka/config/kraft/server.properties
+        content: |
+          # Basic Kafka configuration for KRaft mode
+          broker.id=0
+          listeners=PLAINTEXT://0.0.0.0:9092
+          log.dirs=/var/lib/kafka/logs
+          num.partitions=1
+          default.replication.factor=1
+          auto.create.topics.enable=true
+          process.roles=broker,controller
+          controller.quorum.voters=0@localhost:9093
+          inter.broker.listener.name=PLAINTEXT
+          log.retention.hours=168
+          log.segment.bytes=1073741824
+          log.retention.check.interval.ms=300000
+          zookeeper.connection.timeout.ms=18000
+          log.dirs=/var/lib/kafka/logs
+
+    - name: Create Kafka directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /var/lib/kafka
+        - /var/lib/kafka/logs
+
+    - name: Create Kafka service
+      copy:
+        dest: /etc/systemd/system/kafka.service
+        content: |
+          [Unit]
+          Description=Apache Kafka Server
+          Documentation=http://kafka.apache.org/documentation.html
+          After=network.target
+
+          [Service]
+          User=root
+          Group=root
+          ExecStart=/usr/local/kafka/bin/kafka-server-start.sh /usr/local/kafka/config/kraft/server.properties
+          ExecStop=/usr/local/kafka/bin/kafka-server-stop.sh
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start Kafka service
+      systemd:
+        name: kafka
+        enabled: yes
+        state: started
+
+
+## Run the Ansible Playbook
+ansible-playbook kafka-setup.yml
+
+## Verify Kafka Installation
+sudo systemctl status kafka
+
+----------------------------------------------------------------------------------------------------------------------------------------
+
+@@@#### while checking the status if any error occurs then free up the space by using below comments:
+
+free -h
+
+export KAFKA_HEAP_OPTS="-Xms512M -Xmx512M"
+
+## Adjust Kafka Heap Size
+## Open the Kafka environment configuration file:
+
+nano /usr/local/kafka/bin/kafka-server-start.sh
+
+## Locate the KAFKA_HEAP_OPTS line and adjust the heap size. For example:
+
+export KAFKA_HEAP_OPTS="-Xms512M -Xmx512M"
+
+##  Restart Kafka Service
+
+sudo systemctl restart kafka
+
+## again Verify Kafka Installation
+ sudo systemctl status kafka
+
+ --------------------------------------------------------
+# To edit the server.properties
+
+nano /usr/local/kafka/config/server.properties
+
+
+
+-------------------------------------------------------------------------------------------------------------------------------------
+
+## Create a Test Topic
+/usr/local/kafka/bin/kafka-topics.sh --create --topic test --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+## Produce Messages
+/usr/local/kafka/bin/kafka-console-producer.sh --topic test --bootstrap-server localhost:9092
+ 
+ ..After running this command, type a few messages and press Enter after each one. This will produce messages to the test topic. 
+
+
+## Consume Messages
+Open another terminal session and run the following command to consume messages from the test topic:
+
+/usr/local/kafka/bin/kafka-console-consumer.sh --topic test --from-beginning --bootstrap-server localhost:9092
+
+
+
+
+
+
+
+
+
+
+

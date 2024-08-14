@@ -1,0 +1,114 @@
+install aws cli
+-----------------------------
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+apt install unzip
+unzip awscliv2.zip
+sudo ./aws/install
+-------------------------------------------------
+
+verify installation:
+-------------------
+aws --version
+
+---------------------------------------------------------------
+
+aws configure
+
+
+# AWS Access Key ID
+# AWS Secret Access Key
+# Default region name (e.g., us-east-1)
+# Default output format (e.g., json)
+--------------------------------------------------------------
+
+## Use Tofu to Set Up Your EC2 Instance:
+------------------------------------
+## Tofu (similar to Terraform) helps you automatically create and manage cloud resources like EC2 instances. Here's how to use it for setting up your EC2 
+instance:
+
+mkdir tofu-config
+cd tofu-config
+
+
+---------------------------------------------------------------
+## Create a Tofu Configuration File
+## In the tofu-config directory, create a file called main.tf:
+
+nano main.tf
+
+-----------------------------------------------------------------
+
+## Paste this into main.tf (replace "ami-0abcdef1234567890" with your Ubuntu 20.04 AMI ID):
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+# Define the security group
+resource "aws_security_group" "opentofu_sg" {
+  name = "opentofu"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 2181
+    to_port     = 2181
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Define the EC2 instance
+resource "aws_instance" "opentofu_instance" {
+  ami           = "ami-0abcdef1234567890"  # Replace with your new AMI ID
+  instance_type = "t2.micro"
+  security_groups = [aws_security_group.opentofu_sg.name]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update -y
+              apt-get install -y git ansible
+              ansible-pull -U https://git.devopscentrum.com/devopspatial/ansible-playbooks.git -C main prod/kafka/install.yaml
+              EOF
+
+  tags = {
+    Name = "opentofu"
+  }
+}
+
+-----------------------------------------------------------------------------
+Initialize Tofu:
+
+tofu init
+tofu plan
+tofu apply
+
+
+
+--------------------------------------------------------------------------------
+Once your EC2 instance is ready, you can install Kafka on it using Ansible:
+
+then follow the ansible file 
+
+
+
+

@@ -1,0 +1,54 @@
+provider "aws" {
+  region = "ap-south-1"
+}
+
+# Define the security group
+resource "aws_security_group" "opentofu_sg" {
+  name = "opentofu"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9092
+    to_port     = 9092
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 2181
+    to_port     = 2181
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Define the EC2 instance
+resource "aws_instance" "opentofu_instance" {
+  ami           = "ami-0abcdef1234567890"  # Replace with your new AMI ID
+  instance_type = "t2.micro"
+  security_groups = [aws_security_group.opentofu_sg.name]
+
+  user_data = <<-EOF
+              #!/bin/bash
+              apt-get update -y
+              apt-get install -y git ansible
+              ansible-pull -U https://git.devopscentrum.com/devopspatial/ansible-playbooks.git -C main prod/kafka/install.yaml
+              EOF
+
+  tags = {
+    Name = "opentofu"
+  }
+}

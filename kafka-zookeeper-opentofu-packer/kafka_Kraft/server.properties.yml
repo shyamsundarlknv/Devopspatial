@@ -1,0 +1,28 @@
+# Broker id
+broker.id=0
+
+# Kafka listeners and ports
+listeners=PLAINTEXT://0.0.0.0:9092
+advertised.listeners=PLAINTEXT://13.60.23.106:9092
+
+# Controller listener names
+controller.listener.names=PLAINTEXT
+
+# KRaft mode settings
+process.roles=broker,controller
+controller.quorum.voters=0@localhost:9093
+
+# Heap settings
+KAFKA_HEAP_OPTS="-Xmx256M -Xms256M"
+
+# Log directories
+log.dirs=/var/lib/kafka/logs
+
+# Number of partitions
+num.partitions=1
+
+# Replication factor
+default.replication.factor=1
+
+# Auto creation of topics
+auto.create.topics.enable=true

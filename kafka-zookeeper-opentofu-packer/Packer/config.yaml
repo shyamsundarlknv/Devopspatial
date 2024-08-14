@@ -1,0 +1,24 @@
+{
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "region": "ap-south-1",
+      "instance_type": "t2.micro",
+      "source_ami": "ami-05932268453c05d23",
+      "ssh_username": "ubuntu",
+      "ami_name": "custom-ami-with-software-{{timestamp}}"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "shell",
+      "inline": [
+        "sudo apt-get update",
+        "sudo apt-get install -y software-properties-common",
+        "sudo add-apt-repository ppa:openjdk-r/ppa",
+        "sudo apt-get update",
+        "sudo apt-get install -y openjdk-17-jdk python3 git ansible"
+      ]
+    }
+  ]
+}
